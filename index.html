@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Focus7 Snake</title>
 
   <style>
@@ -11,6 +11,16 @@
       margin: 0;
       padding: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    html, body {
+      overscroll-behavior: none;
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+      position: fixed;
+      touch-action: none;
+      -webkit-overflow-scrolling: none;
     }
 
     body {
@@ -71,14 +81,29 @@
       font-weight: 700;
     }
 
-    canvas {
+    .canvas-container {
+      position: relative;
       width: 100%;
-      height: auto;
+    }
+
+    .canvas-container::before {
+      content: "";
+      display: block;
+      padding-top: 100%;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       display: block;
       border-radius: 14px;
       background: #020617;
       border: 1px solid #111827;
       image-rendering: pixelated;
+      touch-action: none;
     }
 
     .status {
@@ -108,56 +133,28 @@
       color: #a855f7;
     }
 
-    .controls {
-      margin-top: 12px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .controls-row {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-    }
-
-    .control-btn,
     .restart-btn {
-      min-width: 58px;
-      min-height: 42px;
+      margin-top: 12px;
+      width: 100%;
+      padding: 12px 0;
       border-radius: 999px;
       border: 1px solid #1f2937;
       background: #020617;
-      color: #e5e7eb;
-      font-size: 18px;
+      color: #cbd5e1;
+      font-size: 14px;
       cursor: pointer;
       touch-action: manipulation;
     }
 
-    .restart-btn {
-      margin-top: 10px;
-      width: 100%;
-      font-size: 14px;
-      color: #cbd5e1;
-    }
-
-    .control-btn:active,
     .restart-btn:active {
       transform: scale(0.96);
       border-color: #22c55e;
-    }
-
-    @media (min-width: 768px) {
-      .controls {
-        display: none;
-      }
     }
   </style>
 </head>
 
 <body>
-  <div class="game-wrapper">
+  <div class="game-wrapper" id="gameWrapper">
     <div class="header">
       <div class="brand">
         <div class="title">Focus7 Snake</div>
@@ -166,27 +163,18 @@
       <div class="score">Счёт: <span id="score">0</span></div>
     </div>
 
-    <canvas id="game" width="400" height="400"></canvas>
+    <div class="canvas-container">
+      <canvas id="game" width="400" height="400"></canvas>
+    </div>
 
     <div class="status" id="status">
-      ПК: стрелки — управление, <span>пробел</span> — перезапуск. На телефоне — кнопки ниже.
+      ПК: стрелки — управление, <span>пробел</span> — перезапуск. На телефоне — проводите по экрану.
     </div>
 
     <div class="legend">
       <strong>Красный</strong> — фокус, +1 очко.<br />
       <strong>Фиолетовый</strong> — шум, −1 очко и короче змейка.<br />
       Края поля работают как порталы.
-    </div>
-
-    <div class="controls">
-      <div class="controls-row">
-        <button class="control-btn" data-dir="up">↑</button>
-      </div>
-      <div class="controls-row">
-        <button class="control-btn" data-dir="left">←</button>
-        <button class="control-btn" data-dir="down">↓</button>
-        <button class="control-btn" data-dir="right">→</button>
-      </div>
     </div>
 
     <button class="restart-btn" id="restart">Начать заново</button>
@@ -200,7 +188,6 @@
     const restartButton = document.getElementById("restart");
 
     const tileCount = 20;
-    const gridSize = canvas.width / tileCount;
     const minLength = 2;
     const poisonShrink = 2;
     const tickInterval = 110;
@@ -214,11 +201,27 @@
     let gameOver;
     let timerId = null;
 
+    let gridSize;
+
+    function calcGridSize() {
+      gridSize = canvas.width / tileCount;
+    }
+
     function setStatus(text) {
       statusElement.innerHTML = text;
     }
 
+    function resizeCanvas() {
+      calcGridSize();
+      draw();
+    }
+
     function resetGame() {
+      if (timerId) {
+        clearInterval(timerId);
+        timerId = null;
+      }
+
       snake = [
         { x: 10, y: 10 },
         { x: 9, y: 10 },
@@ -234,9 +237,8 @@
       food = randomFreeCell();
       poison = randomFreeCell([food]);
 
-      setStatus('ПК: стрелки — управление, <span>пробел</span> — перезапуск. На телефоне — кнопки ниже.');
+      setStatus('ПК: стрелки — управление, <span>пробел</span> — перезапуск. На телефоне — проводите по экрану.');
 
-      if (timerId) clearInterval(timerId);
       timerId = setInterval(update, tickInterval);
       draw();
     }
@@ -299,6 +301,8 @@
     }
 
     function draw() {
+      if (!gridSize) calcGridSize();
+
       ctx.fillStyle = "#020617";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -338,6 +342,7 @@
     function endGame() {
       gameOver = true;
       clearInterval(timerId);
+      timerId = null;
       setStatus('Игра окончена. Счёт: <span>' + score + '</span>. Нажми <span>пробел</span> или кнопку «Начать заново».');
     }
 
@@ -363,13 +368,58 @@
       if (event.key === "ArrowRight") setDirection("right");
     });
 
-    document.querySelectorAll(".control-btn").forEach((button) => {
-      button.addEventListener("click", () => {
-        setDirection(button.getAttribute("data-dir"));
-      });
-    });
-
     restartButton.addEventListener("click", resetGame);
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    const swipeThreshold = 20;
+
+    function handleTouchStart(event) {
+      const touch = event.touches[0];
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+    }
+
+    function handleTouchMove(event) {
+      event.preventDefault();
+
+      if (!touchStartX || !touchStartY) return;
+
+      const touch = event.touches[0];
+      const deltaX = touch.clientX - touchStartX;
+      const deltaY = touch.clientY - touchStartY;
+
+      if (Math.abs(deltaX) < swipeThreshold && Math.abs(deltaY) < swipeThreshold) return;
+
+      if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        if (deltaX > 0) {
+          setDirection("right");
+        } else {
+          setDirection("left");
+        }
+      } else {
+        if (deltaY > 0) {
+          setDirection("down");
+        } else {
+          setDirection("up");
+        }
+      }
+
+      touchStartX = 0;
+      touchStartY = 0;
+    }
+
+    function handleTouchEnd(event) {
+      touchStartX = 0;
+      touchStartY = 0;
+    }
+
+    canvas.addEventListener("touchstart", handleTouchStart, { passive: true });
+    canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
+    canvas.addEventListener("touchend", handleTouchEnd, { passive: true });
+    canvas.addEventListener("touchcancel", handleTouchEnd, { passive: true });
+
+    window.addEventListener("resize", resizeCanvas);
 
     resetGame();
   </script>
